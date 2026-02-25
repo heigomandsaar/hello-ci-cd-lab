@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkput code
+    uses: actions/checkout@v3
+
+    - name: Login to GHCR
+    run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Build image
+    run: docker build -t ghcr.io/${{ github.repository }}:latest .
+
+    - name: Push image
+    run: docker push ghcr.io/${{ github.repository }}:latest
+
+    - name: Deploy to VM
+    uses: appleboy/ssh-action@v1
+    with:
+      host: ${{ secrets.VM_HOST }}
+      username: ${{ secrets.VM_USER }}
+      key: ${{ secrets.VM_SSH_KEY }}
+      port: 22
+      script: |
+        su systemctl start docker || true
+        docker pull ghcr.io/${{ github.repository }}:latest
+        docker stop hello || true
+        docker rm hello || true
+        docker run -d -p 80:3000 --name hello ghcr.io/${{ github.repository }}:latest
