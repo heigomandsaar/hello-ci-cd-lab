@@ -1,4 +1,4 @@
-name: CI/CD (self-hosted)
+name: CI/CD (self-hosted, advanced)
 
 on:
   push:
@@ -7,14 +7,48 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    environment: dev
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-      - name: Build docker image
-        run: docker build -t nodejs-app:latest .
-      - name: Stop old container (If any)
+
+      - name: Set variables
         run: |
-          docker stop hello || true
-          docker rm hello || true
-      - name: Run container
-        run: docker run -d -p 3000:5006 --name hello nodejs-app:latest
+          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "APP_ENV=dev" >> $GITHUB_ENV
+
+      - name: Save current image (for rollback)
+        run: |
+          docker inspect hello --format='{{.Image}}' > previous_image.txt || echo "none" > previous_image.txt
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t nodejs-app:latest \
+            -t nodejs-app:${IMAGE_TAG} .
+
+      - name: Deploy with docker-compose
+        run: |
+          docker compose down || true
+          IMAGE_TAG=${IMAGE_TAG} APP_ENV=${APP_ENV} docker compose up -d
+
+      - name: Health check
+        run: |
+          echo "Waiting for app..."
+          sleep 5
+          curl -f http://localhost:3000
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, rolling back..."
+          PREV_IMAGE=$(cat previous_image.txt)
+
+          if [ "$PREV_IMAGE" != "none" ]; then
+            docker stop hello || true
+            docker rm hello || true
+            docker run -d -p 3000:3000 --name hello $PREV_IMAGE
+          else
+            echo "No previous image to roll back to"
+          fi
