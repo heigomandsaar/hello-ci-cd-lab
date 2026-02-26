@@ -22,7 +22,7 @@ jobs:
         
       - name: Debug rendered page content
         run: |
-          sed -n '1,200p' views/pages/index.js        
+          sed -n '1,200p' views/pages/index.ejs        
         
       - name: Run tests
         run: npm test
