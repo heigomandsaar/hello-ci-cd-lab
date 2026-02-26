@@ -20,6 +20,10 @@ jobs:
       - name: Install dependencies
         run: npm install
         
+      - name: Debug rendered page content
+        run: |
+          sed -n '1,200p' views/pages/index.js        
+        
       - name: Run tests
         run: npm test
         
