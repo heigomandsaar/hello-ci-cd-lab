@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  app:
+    image: nodejs-app:${IMAGE_TAG}
+    container_name: hello
+    ports:
+      - "3000:5006"
+    environment:
+      - APP_ENV=${APP_ENV}
+    restart: always
